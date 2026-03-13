@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ponte Papai">
 <title>Ponte — Papai</title>
+<script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,600;1,300&family=DM+Sans:wght@300;400;500&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -45,7 +46,7 @@
   .vol-bars.active { opacity: 1; }
   .vol-bar { width: 5px; background: var(--accent); border-radius: 3px; height: 4px; }
 
-  .status-text { font-size: 0.95rem; color: var(--muted); text-align: center; font-weight: 300; transition: color 0.3s; flex-shrink: 0; }
+  .status-text { font-size: 0.95rem; color: var(--muted); text-align: center; font-weight: 300; transition: color 0.3s; flex-shrink: 0; padding: 0 20px; }
   .status-text.active { color: var(--accent); }
   .status-text.sent   { color: var(--green); }
 
@@ -62,9 +63,6 @@
   .sent-item .msg   { color: var(--text); line-height: 1.4; flex: 1; }
   .sent-item .ts    { color: var(--muted); font-size: 0.72rem; flex-shrink: 0; }
 
-  .ios-notice { background: #2A1A00; border: 1px solid #5A3A00; border-radius: 12px; padding: 12px 16px; font-size: 0.8rem; color: #C8A040; text-align: center; max-width: 400px; line-height: 1.5; display: none; }
-  .ios-notice.show { display: block; }
-
   .footer { padding: 10px 24px 12px; text-align: center; font-size: 0.72rem; color: var(--muted); flex-shrink: 0; border-top: 1px solid var(--border); }
   ::-webkit-scrollbar { width: 3px; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 </style>
@@ -76,8 +74,6 @@
 </div>
 
 <div class="main">
-  <div class="ios-notice" id="iosNotice">📱 iPhone detectado — toque o botão para liberar o microfone. Diga <em>"Sim"</em> quando o Safari pedir permissão.</div>
-
   <div class="mic-wrap">
     <div class="mic-ring" id="ring1"></div>
     <div class="mic-ring delay" id="ring2"></div>
@@ -107,46 +103,53 @@
 <div class="footer">Fale naturalmente — envia automaticamente após pausa de silêncio</div>
 
 <script>
-const ROOM_KEY  = 'ponte-familia-2026-v2';
-const WS_URL    = `wss://demo.piesocket.com/v3/${encodeURIComponent(ROOM_KEY)}?api_key=VCXCEuvhGcBDP7XhiJJUDvR1e1D3eiVjgZ9f16R&notify_self=0`;
-const SILENCE_MS = 2500;
+// ── ABLY CONFIG ────────────────────────────────────────────────────────────
+const ABLY_KEY   = 'QdXAyw.CAMQTA:NpWhLeFiTrS7nu14IwRDNakDzFlriNq-XM5JIlYilSQ';
+const CHANNEL_NAME = 'ponte-familia';
+const SILENCE_MS   = 2500;
 
-let ws, recognition;
+// ── State ──────────────────────────────────────────────────────────────────
+let ably, channel, recognition;
 let isListening = false, finalText = '', interimText = '';
 let silenceTimer = null, sentList = [], barAnim = null;
-
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-if (isIOS) document.getElementById('iosNotice').classList.add('show');
 
-// WebSocket
-function connectWS() {
-  ws = new WebSocket(WS_URL);
-  ws.onopen  = () => setConn('connected','Conectado');
-  ws.onclose = () => { setConn('','Desconectado'); setTimeout(connectWS,3000); };
-  ws.onerror = () => setConn('error','Erro');
+// ── Ably connection ────────────────────────────────────────────────────────
+function connectAbly() {
+  ably = new Ably.Realtime({ key: ABLY_KEY, clientId: 'papai' });
+
+  ably.connection.on('connected', () => setConn('connected', 'Conectado'));
+  ably.connection.on('disconnected', () => setConn('', 'Reconectando...'));
+  ably.connection.on('suspended', () => setConn('error', 'Sem conexão'));
+  ably.connection.on('failed', () => setConn('error', 'Erro'));
+
+  channel = ably.channels.get(CHANNEL_NAME);
 }
-function setConn(s,l) {
-  document.getElementById('connDot').className = 'conn-dot'+(s?' '+s:'');
+
+function setConn(s, l) {
+  document.getElementById('connDot').className = 'conn-dot' + (s ? ' ' + s : '');
   document.getElementById('connLabel').textContent = l;
 }
+
 function sendMessage(text) {
   text = text.trim();
   if (!text) return;
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type:'message', text, ts:Date.now() }));
-    addSent(text); flashSent();
-  } else { setConn('error','Sem conexão'); }
+  channel.publish('mensagem', { text, ts: Date.now() }, (err) => {
+    if (err) { setConn('error', 'Erro ao enviar'); return; }
+    addSent(text);
+    flashSent();
+  });
   finalText = interimText = '';
   renderTranscript();
 }
 
-// Speech Recognition
+// ── Speech Recognition ─────────────────────────────────────────────────────
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 function setupSR() {
   if (!SR) return false;
   recognition = new SR();
-  recognition.continuous     = !isIOS; // iOS: false for stability
+  recognition.continuous     = !isIOS;
   recognition.interimResults = true;
   recognition.lang           = 'pt-BR';
 
@@ -167,7 +170,10 @@ function setupSR() {
 
   recognition.onerror = (e) => {
     if (e.error === 'no-speech') { if (isListening) tryRestart(); return; }
-    if (e.error === 'not-allowed') { setStatus('Permissão negada. Vá em Ajustes > Safari > Microfone.',''); stopMic(); return; }
+    if (e.error === 'not-allowed') {
+      setStatus('Permissão negada. Vá em Ajustes > Safari > Microfone.', '');
+      stopMic(); return;
+    }
   };
 
   recognition.onend = () => { if (isListening) tryRestart(); };
@@ -191,10 +197,9 @@ function startMic() {
     document.getElementById('ring1').classList.add('pulse');
     document.getElementById('ring2').classList.add('pulse');
     document.getElementById('volBars').classList.add('active');
-    document.getElementById('iosNotice').classList.remove('show');
-    setStatus('Ouvindo... fale agora','active');
+    setStatus('Ouvindo... fale agora', 'active');
     startBars();
-  } catch(e) { setStatus('Erro ao iniciar. Tente novamente.',''); }
+  } catch(e) { setStatus('Erro ao iniciar. Tente novamente.', ''); }
 }
 
 function stopMic() {
@@ -207,15 +212,15 @@ function stopMic() {
   document.getElementById('ring2').classList.remove('pulse');
   document.getElementById('volBars').classList.remove('active');
   cancelAnimationFrame(barAnim);
-  setStatus('Toque para começar a falar','');
+  setStatus('Toque para começar a falar', '');
   finalText = interimText = '';
   renderTranscript();
 }
 
-function setStatus(m,c) {
+function setStatus(m, c) {
   const el = document.getElementById('statusText');
   el.textContent = m;
-  el.className = 'status-text'+(c?' '+c:'');
+  el.className = 'status-text' + (c ? ' ' + c : '');
 }
 
 function renderTranscript() {
@@ -227,8 +232,8 @@ function renderTranscript() {
 }
 
 function addSent(text) {
-  const ts = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  sentList.unshift({text,ts});
+  const ts = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  sentList.unshift({ text, ts });
   if (sentList.length > 6) sentList.pop();
   document.getElementById('sentItems').innerHTML = sentList.map(s =>
     `<div class="sent-item"><span class="check">✓</span><span class="msg">${esc(s.text)}</span><span class="ts">${s.ts}</span></div>`
@@ -237,9 +242,9 @@ function addSent(text) {
 
 function flashSent() {
   const btn = document.getElementById('micBtn');
-  btn.className='mic-btn sending'; btn.textContent='✓';
-  setStatus('Enviado! ✓','sent');
-  setTimeout(()=>{
+  btn.className = 'mic-btn sending'; btn.textContent = '✓';
+  setStatus('Enviado! ✓', 'sent');
+  setTimeout(() => {
     btn.className   = isListening ? 'mic-btn listening' : 'mic-btn';
     btn.textContent = isListening ? '⏹️' : '🎙️';
     setStatus(isListening ? 'Ouvindo... fale agora' : 'Toque para começar a falar', isListening ? 'active' : '');
@@ -250,15 +255,15 @@ function startBars() {
   const ids = ['vb0','vb1','vb2','vb3','vb4'];
   function f() {
     if (!isListening) return;
-    ids.forEach(id => { document.getElementById(id).style.height=(Math.random()*20+3)+'px'; });
-    barAnim = requestAnimationFrame(()=>setTimeout(f,110));
+    ids.forEach(id => { document.getElementById(id).style.height = (Math.random() * 20 + 3) + 'px'; });
+    barAnim = requestAnimationFrame(() => setTimeout(f, 110));
   }
   f();
 }
 
 function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-connectWS();
+connectAbly();
 </script>
 </body>
 </html>
