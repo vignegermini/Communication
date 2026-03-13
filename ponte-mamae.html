@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Ponte Mamãe">
+<title>Ponte — Mamãe</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #EEF4F9; --surface: #FFFFFF; --border: #D0DDE8;
+    --text: #1A2D3F; --muted: #7A9BB5; --accent: #3A7BD5;
+    --accent-soft: #E3EDF8; --green: #2A9D6A; --red: #C84B4B;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; overflow: hidden; -webkit-text-size-adjust: 100%; }
+  body { display: flex; flex-direction: column; height: 100dvh; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+
+  .header { padding: 16px 22px 13px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; box-shadow: 0 2px 10px rgba(58,123,213,0.07); }
+  .header-title { font-family: 'Fraunces', serif; font-size: 1.3rem; font-weight: 300; color: var(--text); }
+  .header-title span { color: var(--accent); font-style: italic; }
+  .conn-pill { display: flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 5px 10px; }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transition: background 0.4s; }
+  .conn-dot.connected { background: var(--green); box-shadow: 0 0 6px rgba(42,157,106,0.5); }
+  .conn-dot.error { background: var(--red); }
+  .conn-label { font-size: 0.72rem; color: var(--muted); }
+
+  /* Font size bar */
+  .font-bar { padding: 8px 20px; display: flex; align-items: center; gap: 10px; background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .font-bar-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .font-btns { display: flex; gap: 5px; }
+  .fbtn { padding: 5px 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-family: 'DM Sans', sans-serif; font-size: 0.8rem; color: var(--text); cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  .fbtn.on { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* Hero message */
+  .hero { flex: 1; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px 24px; overflow: hidden; position: relative; }
+  .hero.flash { animation: flashBg 0.7s ease; }
+  @keyframes flashBg { 0%,100%{background:var(--surface);} 35%{background:#BDD8F5;} }
+
+  .hero-from { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 18px; display: flex; align-items: center; gap: 7px; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: blink 2s infinite; }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+
+  .hero-text { font-family: 'Fraunces', serif; font-size: 2.6rem; font-weight: 500; line-height: 1.3; color: var(--text); text-align: center; max-width: 340px; word-break: break-word; transition: font-size 0.25s; }
+  .hero-text.ph { font-size: 1.2rem; font-weight: 300; color: var(--muted); font-style: italic; }
+
+  .hero-time { margin-top: 18px; font-size: 0.8rem; color: var(--muted); }
+
+  /* Speaking indicator */
+  .speak-bars { display: flex; align-items: flex-end; gap: 4px; height: 22px; margin-top: 14px; opacity: 0; transition: opacity 0.3s; }
+  .speak-bars.on { opacity: 1; }
+  .sb { width: 5px; background: var(--accent); border-radius: 3px; height: 4px; }
+  .sb:nth-child(1){animation:spk 0.8s 0.0s infinite;}
+  .sb:nth-child(2){animation:spk 0.8s 0.15s infinite;}
+  .sb:nth-child(3){animation:spk 0.8s 0.3s infinite;}
+  .sb:nth-child(4){animation:spk 0.8s 0.15s infinite;}
+  .sb:nth-child(5){animation:spk 0.8s 0.0s infinite;}
+  @keyframes spk { 0%,100%{height:4px;} 50%{height:20px;} }
+
+  /* Waiting dots */
+  .wait-dots { display: flex; gap: 6px; margin-top: 14px; }
+  .wd { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .wd:nth-child(1){animation:wd 1.4s 0.0s infinite;}
+  .wd:nth-child(2){animation:wd 1.4s 0.2s infinite;}
+  .wd:nth-child(3){animation:wd 1.4s 0.4s infinite;}
+  @keyframes wd { 0%,100%{opacity:0.2;transform:scale(1);} 40%{opacity:1;transform:scale(1.3);} }
+
+  /* Controls */
+  .controls { padding: 12px 18px; display: flex; gap: 9px; border-top: 1px solid var(--border); flex-shrink: 0; background: var(--surface); }
+  .btn { flex:1; padding:13px; border:none; border-radius:12px; font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:500; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; transition:opacity 0.15s,transform 0.1s; }
+  .btn:active { transform:scale(0.95); }
+  .btn-primary { background:var(--accent); color:white; }
+  .btn-ghost   { background:var(--accent-soft); color:var(--accent); }
+
+  /* iOS unlock notice */
+  .unlock-notice { background:#E8F0F8; border:1px solid #BDD0E8; border-radius:10px; padding:10px 14px; font-size:0.8rem; color:var(--muted); text-align:center; margin:0 18px 8px; display:none; line-height:1.5; flex-shrink:0; }
+  .unlock-notice.show { display:block; }
+
+  /* History */
+  .history { background:var(--bg); border-top:1px solid var(--border); padding:10px 18px 12px; flex-shrink:0; max-height:120px; overflow-y:auto; }
+  .history-label { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); margin-bottom:6px; }
+  .h-items { display:flex; flex-direction:column; gap:5px; }
+  .h-item { background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:7px 12px; font-family:'Fraunces',serif; font-size:0.88rem; color:var(--text); line-height:1.4; display:flex; justify-content:space-between; align-items:baseline; gap:8px; cursor:pointer; }
+  .h-item .ts { font-size:0.7rem; color:var(--muted); flex-shrink:0; font-family:'DM Sans',sans-serif; }
+
+  /* Arrival banner */
+  .banner { position:fixed; top:0;left:0;right:0; background:var(--accent); color:white; text-align:center; padding:14px 20px; font-family:'Fraunces',serif; font-size:1.05rem; transform:translateY(-100%); transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1); z-index:100; box-shadow:0 4px 20px rgba(58,123,213,0.3); padding-top:calc(14px + env(safe-area-inset-top)); }
+  .banner.show { transform:translateY(0); }
+
+  ::-webkit-scrollbar { width:3px; } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<div class="banner" id="banner">📩 Papai está falando com você</div>
+
+<div class="header">
+  <div class="header-title">Ponte — <span>Mamãe</span></div>
+  <div class="conn-pill"><div class="conn-dot" id="connDot"></div><span class="conn-label" id="connLabel">Conectando...</span></div>
+</div>
+
+<div class="font-bar">
+  <span class="font-bar-label">Tamanho</span>
+  <div class="font-btns">
+    <button class="fbtn" onclick="setSize('1.8rem',this)">A</button>
+    <button class="fbtn on" onclick="setSize('2.6rem',this)">A+</button>
+    <button class="fbtn" onclick="setSize('3.4rem',this)">A++</button>
+    <button class="fbtn" onclick="setSize('4.2rem',this)">A+++</button>
+  </div>
+</div>
+
+<div class="unlock-notice" id="unlockNotice">
+  🔊 Toque em <strong>"Ouvir de novo"</strong> uma vez para ativar o áudio automático no iPhone.
+</div>
+
+<div class="hero" id="hero">
+  <div class="hero-from"><div class="live-dot"></div>Mensagem do Papai</div>
+  <div class="hero-text ph" id="heroText">Aguardando Papai...</div>
+  <div class="wait-dots" id="waitDots"><div class="wd"></div><div class="wd"></div><div class="wd"></div></div>
+  <div class="hero-time" id="heroTime"></div>
+  <div class="speak-bars" id="speakBars">
+    <div class="sb"></div><div class="sb"></div><div class="sb"></div><div class="sb"></div><div class="sb"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-primary" onclick="readAloud(true)">🔊 Ouvir de novo</button>
+  <button class="btn btn-ghost"   onclick="clearDisplay()">Limpar</button>
+</div>
+
+<div class="history">
+  <div class="history-label">Mensagens anteriores</div>
+  <div class="h-items" id="hItems"><div style="font-size:0.8rem;color:var(--muted);font-style:italic;">Nenhuma mensagem ainda</div></div>
+</div>
+
+<script>
+const ROOM_KEY = 'ponte-familia-2026-v2';
+const WS_URL   = `wss://demo.piesocket.com/v3/${encodeURIComponent(ROOM_KEY)}?api_key=VCXCEuvhGcBDP7XhiJJUDvR1e1D3eiVjgZ9f16R&notify_self=0`;
+
+let ws, currentMsg = '', history = [], audioUnlocked = false;
+
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+if (isIOS) document.getElementById('unlockNotice').classList.add('show');
+
+// WebSocket
+function connectWS() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen    = () => setConn('connected','Conectado');
+  ws.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.type === 'message' && d.text) receive(d.text);
+    } catch(_) {}
+  };
+  ws.onclose = () => { setConn('','Desconectado'); setTimeout(connectWS,3000); };
+  ws.onerror = () => setConn('error','Erro');
+}
+function setConn(s,l) {
+  document.getElementById('connDot').className = 'conn-dot'+(s?' '+s:'');
+  document.getElementById('connLabel').textContent = l;
+}
+
+function receive(text) {
+  currentMsg = text;
+  const now  = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+  // Update hero
+  const ht = document.getElementById('heroText');
+  ht.className   = 'hero-text';
+  ht.textContent = text;
+  document.getElementById('heroTime').textContent = now;
+  document.getElementById('waitDots').style.display = 'none';
+
+  // Flash
+  const hero = document.getElementById('hero');
+  hero.classList.remove('flash');
+  void hero.offsetWidth;
+  hero.classList.add('flash');
+
+  // Banner
+  const b = document.getElementById('banner');
+  b.classList.add('show');
+  setTimeout(() => b.classList.remove('show'), 3500);
+
+  // Vibrate
+  if (navigator.vibrate) navigator.vibrate([200,100,200]);
+
+  // Read aloud — iOS needs prior user interaction to unlock audio
+  if (audioUnlocked) readAloud(false);
+
+  // History
+  history.unshift({text, time:now});
+  if (history.length > 20) history.pop();
+  renderHistory();
+}
+
+// Speech — iOS Safari requires user gesture to start AudioContext/SpeechSynthesis
+function readAloud(userGesture) {
+  if (!window.speechSynthesis || !currentMsg) return;
+  if (userGesture) {
+    audioUnlocked = true;
+    document.getElementById('unlockNotice').classList.remove('show');
+  }
+  speechSynthesis.cancel();
+  const utt    = new SpeechSynthesisUtterance(currentMsg);
+  utt.lang     = 'pt-BR';
+  utt.rate     = 0.85;
+  utt.pitch    = 1.0;
+  utt.volume   = 1.0;
+  const voices = speechSynthesis.getVoices();
+  const pt     = voices.find(v => v.lang.startsWith('pt'));
+  if (pt) utt.voice = pt;
+  utt.onstart = () => document.getElementById('speakBars').classList.add('on');
+  utt.onend   = () => document.getElementById('speakBars').classList.remove('on');
+  utt.onerror = () => document.getElementById('speakBars').classList.remove('on');
+  speechSynthesis.speak(utt);
+}
+
+if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => {};
+
+function clearDisplay() {
+  speechSynthesis && speechSynthesis.cancel();
+  currentMsg = '';
+  const ht = document.getElementById('heroText');
+  ht.className   = 'hero-text ph';
+  ht.textContent = 'Aguardando Papai...';
+  document.getElementById('heroTime').textContent = '';
+  document.getElementById('waitDots').style.display = 'flex';
+  document.getElementById('speakBars').classList.remove('on');
+}
+
+function setSize(size, btn) {
+  document.getElementById('heroText').style.fontSize = size;
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+function renderHistory() {
+  const c = document.getElementById('hItems');
+  if (!history.length) { c.innerHTML='<div style="font-size:0.8rem;color:var(--muted);font-style:italic;">Nenhuma mensagem ainda</div>'; return; }
+  c.innerHTML = history.map(m =>
+    `<div class="h-item" onclick="replay(${JSON.stringify(m.text)})">
+      <span>${esc(m.text)}</span>
+      <span class="ts">${m.time} 🔊</span>
+    </div>`
+  ).join('');
+}
+
+function replay(text) { currentMsg = text; readAloud(true); }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+connectWS();
+</script>
+</body>
+</html>
