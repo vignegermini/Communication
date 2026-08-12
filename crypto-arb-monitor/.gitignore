@@ -1,0 +1,25 @@
+# Data / runtime artifacts
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+data/
+*.log
+KILL
+KILL_SWITCH
+
+# Secrets — never commit keys
+config.yaml
+config.local.yaml
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+build/
+dist/

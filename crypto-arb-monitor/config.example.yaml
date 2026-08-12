@@ -1,0 +1,100 @@
+# arbmon configuration — copy to config.yaml and edit.
+# NOTHING in this file enables live trading. There are no order endpoints
+# anywhere in this codebase. Keys, if present, are used ONLY for a read-only
+# withdrawal-permission safety check (see `keys` below).
+
+run:
+  # How long a single capture session runs. Set to null to run until Ctrl-C
+  # or the kill switch appears. For your 24h capture use 86400.
+  duration_seconds: 86400
+  # File whose mere existence halts EVERYTHING (data + strategies) immediately.
+  kill_switch_file: "KILL"
+
+storage:
+  sqlite_path: "data/arbmon.sqlite"
+  # Persisting every L1 book snapshot is what makes the 250ms replay possible.
+  # At ~20 pairs this is modest; rotate/prune with the CLI if disk is tight.
+  persist_book_snapshots: true
+
+logging:
+  level: "INFO"          # DEBUG | INFO | WARNING | ERROR
+  json: true             # structured (one JSON object per line) vs. plain text
+  file: "data/arbmon.log"
+
+venues:
+  binance:
+    ws_base: "wss://stream.binance.com:9443"
+    taker_fee: 0.001     # 0.10% — parameterized, override per your VIP tier / BNB discount
+    # The 20 most liquid USDT spot pairs. Cross-quote pairs needed by the
+    # triangle scanner (ETHBTC/BNBBTC/BNBETH) are auto-added if missing.
+    symbols:
+      - BTCUSDT
+      - ETHUSDT
+      - BNBUSDT
+      - SOLUSDT
+      - XRPUSDT
+      - DOGEUSDT
+      - ADAUSDT
+      - AVAXUSDT
+      - LINKUSDT
+      - DOTUSDT
+      - TRXUSDT
+      - LTCUSDT
+      - BCHUSDT
+      - NEARUSDT
+      - ATOMUSDT
+      - UNIUSDT
+      - ETCUSDT
+      - FILUSDT
+      - APTUSDT
+      - INJUSDT
+  coinbase:
+    ws_url: "wss://ws-feed.exchange.coinbase.com"
+    taker_fee: 0.006     # 0.60% — Coinbase Advanced retail taker default
+    # Use USDT-quoted products so both venues quote in the SAME unit and the
+    # cross-exchange spread is NOT contaminated by the USDT/USD basis.
+    products:
+      - BTC-USDT
+      - ETH-USDT
+
+strategy:
+  cross_exchange:
+    enabled: true
+    # Only pairs quoted in USDT on BOTH venues are comparable.
+    pairs:
+      - { binance: BTCUSDT, coinbase: BTC-USDT }
+      - { binance: ETHUSDT, coinbase: ETH-USDT }
+    # Log an opportunity only if net edge (after both taker fees) exceeds this.
+    min_edge_bps: 0.0
+  triangular:
+    enabled: true
+    assets: [BTC, ETH, USDT, BNB]
+    min_edge_bps: 0.0
+
+execution:
+  latency_ms: 250          # order assumed to arrive this long after detection
+  # Notional (in quote/USDT) we pretend to deploy per opportunity.
+  order_notional_quote: 1000.0
+
+paper:
+  starting_notional_quote: 100000.0   # paper portfolio size, in USDT
+
+risk:
+  max_position_per_pair_quote: 5000.0 # cap simulated exposure per pair
+  max_daily_sim_loss_quote: 1000.0    # cumulative simulated loss that HALTS strategies
+  halt_on_breach: true
+
+dashboard:
+  enabled: true
+  host: "127.0.0.1"
+  port: 8787
+  refresh_seconds: 3
+
+# OPTIONAL. Leave commented out. If you ever add keys, arbmon performs a
+# READ-ONLY check of the key's permissions on startup and REFUSES to run if
+# withdrawals are enabled. It never places, cancels, or signs an order.
+# keys:
+#   binance:
+#     api_key: "..."
+#     api_secret: "..."
+#     require_no_withdrawal: true   # fail-closed: refuse if withdrawals enabled or unverifiable
